@@ -1,0 +1,124 @@
+# syntax=docker/dockerfile:1.7
+
+ARG UBUNTU_IMAGE=ubuntu:24.04
+ARG WORDPRESS_SOURCE_IMAGE=wordpress:php8.4-fpm
+ARG WP_CLI_IMAGE=wordpress:cli-2.12.0-php8.4
+
+FROM ${WORDPRESS_SOURCE_IMAGE} AS wordpress-source
+FROM ${WP_CLI_IMAGE} AS wp-cli
+
+FROM ${UBUNTU_IMAGE}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ONDREJ_PHP_KEY_FINGERPRINT=B8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
+
+LABEL org.opencontainers.image.title="Byway WordPress PHP 7.4 Legacy" \
+    org.opencontainers.image.description="Migration-only WordPress runtime with Nginx, PHP 7.4, WP-CLI, Redis and Imagick" \
+    org.opencontainers.image.source="https://github.com/onthebyway/wordpress" \
+    org.opencontainers.image.url="https://github.com/onthebyway/wordpress" \
+    org.opencontainers.image.vendor="Byway" \
+    org.opencontainers.image.licenses="GPL-2.0-or-later"
+
+# Runtime package versions intentionally follow Ubuntu and the signed PPA so
+# scheduled rebuilds receive available operating-system and packaging updates.
+# hadolint ignore=DL3008
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
+    install -d -m 0755 /etc/apt/keyrings; \
+    curl --fail --silent --show-error --location \
+        "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x${ONDREJ_PHP_KEY_FINGERPRINT}" \
+        --output /tmp/ondrej-php.asc; \
+    gpg --batch --show-keys --with-colons /tmp/ondrej-php.asc \
+        > /tmp/ondrej-php-key-details; \
+    actualFingerprint="$(awk -F: '$1 == "fpr" { print $10; exit }' /tmp/ondrej-php-key-details)"; \
+    test "$actualFingerprint" = "$ONDREJ_PHP_KEY_FINGERPRINT"; \
+    install -m 0644 /tmp/ondrej-php.asc /etc/apt/keyrings/ondrej-php.asc; \
+    printf '%s\n' \
+        'deb [signed-by=/etc/apt/keyrings/ondrej-php.asc] https://ppa.launchpadcontent.net/ondrej/php/ubuntu noble main' \
+        > /etc/apt/sources.list.d/ondrej-php.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        gettext-base \
+        gosu \
+        nginx \
+        php7.4-bcmath \
+        php7.4-cli \
+        php7.4-curl \
+        php7.4-fpm \
+        php7.4-gd \
+        php7.4-imagick \
+        php7.4-intl \
+        php7.4-mbstring \
+        php7.4-mysql \
+        php7.4-opcache \
+        php7.4-redis \
+        php7.4-soap \
+        php7.4-xml \
+        php7.4-zip \
+        tini; \
+    apt-get purge -y --auto-remove gnupg; \
+    rm -rf /var/lib/apt/lists/* /tmp/ondrej-php.asc /tmp/ondrej-php-key-details; \
+    rm -f /etc/nginx/sites-enabled/default; \
+    sed -ri 's!^error_log = .*!error_log = /proc/self/fd/2!' /etc/php/7.4/fpm/php-fpm.conf; \
+    ln -s /usr/sbin/php-fpm7.4 /usr/local/bin/php-fpm
+
+COPY --from=wordpress-source --chown=www-data:www-data /usr/src/wordpress /usr/src/wordpress
+COPY --from=wordpress-source /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=wp-cli /usr/local/bin/wp /usr/local/bin/wp
+COPY docker/nginx/nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY docker/nginx/wordpress.conf.template /etc/nginx/templates/wordpress.conf.template
+COPY docker/php/zz-byway.ini.template /usr/local/etc/php/templates/zz-byway.ini.template
+COPY docker/php-fpm/zzz-byway.conf.template /usr/local/etc/php-fpm.d/templates/zzz-byway.conf.template
+COPY docker/wordpress/wp-config-docker.php /usr/src/wordpress/wp-config-docker.php
+COPY docker/wordpress/byway-nginx-cache.php /usr/local/share/byway-wordpress/mu-plugins/byway-nginx-cache.php
+COPY --chmod=0755 docker/bin/byway-cache-purge /usr/local/bin/byway-cache-purge
+COPY --chmod=0755 docker/bin/byway-wordpress-cron /usr/local/bin/byway-wordpress-cron
+COPY --chmod=0755 docker/bin/byway-wordpress-entrypoint /usr/local/bin/byway-wordpress-entrypoint
+
+RUN set -eux; \
+    mkdir -p \
+        /usr/local/etc/php/conf.d \
+        /usr/local/etc/php/templates \
+        /usr/local/etc/php-fpm.d/templates \
+        /usr/local/share/byway-wordpress/mu-plugins \
+        /var/cache/nginx/wordpress \
+        /var/www/.wp-cli/cache \
+        /run/nginx \
+        /run/php; \
+    ln -s /usr/local/etc/php/conf.d/zz-byway.ini /etc/php/7.4/cli/conf.d/99-byway.ini; \
+    ln -s /usr/local/etc/php/conf.d/zz-byway.ini /etc/php/7.4/fpm/conf.d/99-byway.ini; \
+    ln -s /usr/local/etc/php-fpm.d/zzz-byway.conf /etc/php/7.4/fpm/pool.d/zzz-byway.conf; \
+    chown -R www-data:www-data /var/cache/nginx /var/www/.wp-cli /run/nginx
+
+ENV PHP_MEMORY_LIMIT=256M \
+    PHP_UPLOAD_MAX_FILESIZE=64M \
+    PHP_POST_MAX_SIZE=70M \
+    PHP_MAX_EXECUTION_TIME=120 \
+    PHP_MAX_INPUT_VARS=3000 \
+    PHP_FPM_MAX_CHILDREN=5 \
+    PHP_FPM_START_SERVERS=1 \
+    PHP_FPM_MIN_SPARE_SERVERS=1 \
+    PHP_FPM_MAX_SPARE_SERVERS=3 \
+    NGINX_CLIENT_MAX_BODY_SIZE=70M \
+    NGINX_FASTCGI_CACHE_VALID=1h \
+    NGINX_FASTCGI_CACHE_INACTIVE=24h \
+    NGINX_FASTCGI_CACHE_MAX_SIZE=1g \
+    NGINX_TRUSTED_PROXY_CIDRS=127.0.0.1/32 \
+    BYWAY_NGINX_CACHE_DIR=/var/cache/nginx/wordpress \
+    WP_CLI_CACHE_DIR=/var/www/.wp-cli/cache \
+    WP_CRON_RUNNER_ENABLED=true \
+    WP_CRON_INTERVAL_SECONDS=300 \
+    DISABLE_WP_CRON=true
+
+WORKDIR /var/www/html
+
+EXPOSE 8080
+VOLUME ["/var/www/html", "/var/cache/nginx"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/.byway-health"]
+
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/local/bin/byway-wordpress-entrypoint"]
+CMD ["serve"]

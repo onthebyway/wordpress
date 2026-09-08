@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cache_dir="${BYWAY_NGINX_CACHE_DIR:-/var/cache/nginx/wordpress}"
+
+if [[ ! -d "$cache_dir" ]]; then
+    echo "Cache directory does not exist: $cache_dir" >&2
+    exit 0
+fi
+
+find "$cache_dir" -mindepth 1 -delete
+printf 'Purged Nginx FastCGI cache: %s\n' "$cache_dir"

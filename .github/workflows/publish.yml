@@ -1,0 +1,96 @@
+name: Build and publish images
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: wordpress-images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY_IMAGE: ghcr.io/onthebyway/wordpress
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tag: php8.4
+            php: "8.4"
+            dockerfile: Dockerfile
+            runtime_arg: WORDPRESS_IMAGE=wordpress:php8.4-fpm
+          - tag: php7.4
+            php: "7.4"
+            dockerfile: Dockerfile.php74
+            runtime_arg: |
+              UBUNTU_IMAGE=ubuntu:24.04
+              WORDPRESS_SOURCE_IMAGE=wordpress:php8.4-fpm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: local/wordpress:${{ matrix.tag }}
+          build-args: |
+            ${{ matrix.runtime_arg }}
+            WP_CLI_IMAGE=wordpress:cli-2.12.0-php8.4
+          cache-from: type=gha,scope=${{ matrix.tag }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.tag }}
+      - run: docker compose --env-file .env.example -f compose.example.yaml config --quiet
+      - run: tests/smoke.sh local/wordpress:${{ matrix.tag }} ${{ matrix.php }}
+      - run: tests/cron.sh local/wordpress:${{ matrix.tag }}
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tag: php8.4
+            dockerfile: Dockerfile
+            runtime_arg: WORDPRESS_IMAGE=wordpress:php8.4-fpm
+          - tag: php7.4
+            dockerfile: Dockerfile.php74
+            runtime_arg: |
+              UBUNTU_IMAGE=ubuntu:24.04
+              WORDPRESS_SOURCE_IMAGE=wordpress:php8.4-fpm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY_IMAGE }}:${{ matrix.tag }}
+          build-args: |
+            ${{ matrix.runtime_arg }}
+            WP_CLI_IMAGE=wordpress:cli-2.12.0-php8.4
+          cache-from: type=gha,scope=${{ matrix.tag }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.tag }}
+          provenance: mode=max
+          sbom: true

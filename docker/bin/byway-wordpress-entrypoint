@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+if [[ "${1:-serve}" != "serve" ]]; then
+    exec /usr/local/bin/docker-entrypoint.sh "$@"
+fi
+
+export PHP_MEMORY_LIMIT="${PHP_MEMORY_LIMIT:-256M}"
+export PHP_UPLOAD_MAX_FILESIZE="${PHP_UPLOAD_MAX_FILESIZE:-64M}"
+export PHP_POST_MAX_SIZE="${PHP_POST_MAX_SIZE:-70M}"
+export PHP_MAX_EXECUTION_TIME="${PHP_MAX_EXECUTION_TIME:-120}"
+export PHP_MAX_INPUT_VARS="${PHP_MAX_INPUT_VARS:-3000}"
+export PHP_FPM_MAX_CHILDREN="${PHP_FPM_MAX_CHILDREN:-5}"
+export PHP_FPM_START_SERVERS="${PHP_FPM_START_SERVERS:-1}"
+export PHP_FPM_MIN_SPARE_SERVERS="${PHP_FPM_MIN_SPARE_SERVERS:-1}"
+export PHP_FPM_MAX_SPARE_SERVERS="${PHP_FPM_MAX_SPARE_SERVERS:-3}"
+export NGINX_CLIENT_MAX_BODY_SIZE="${NGINX_CLIENT_MAX_BODY_SIZE:-$PHP_POST_MAX_SIZE}"
+export NGINX_FASTCGI_CACHE_VALID="${NGINX_FASTCGI_CACHE_VALID:-1h}"
+export NGINX_FASTCGI_CACHE_INACTIVE="${NGINX_FASTCGI_CACHE_INACTIVE:-24h}"
+export NGINX_FASTCGI_CACHE_MAX_SIZE="${NGINX_FASTCGI_CACHE_MAX_SIZE:-1g}"
+export NGINX_TRUSTED_PROXY_CIDRS="${NGINX_TRUSTED_PROXY_CIDRS:-127.0.0.1/32}"
+export BYWAY_NGINX_CACHE_DIR="${BYWAY_NGINX_CACHE_DIR:-/var/cache/nginx/wordpress}"
+export WP_CRON_RUNNER_ENABLED="${WP_CRON_RUNNER_ENABLED:-true}"
+export WP_CRON_INTERVAL_SECONDS="${WP_CRON_INTERVAL_SECONDS:-300}"
+export DISABLE_WP_CRON="${DISABLE_WP_CRON:-true}"
+
+validate_php_size() {
+    local name="$1"
+    local value="${!name}"
+    if [[ ! "$value" =~ ^-1$|^[0-9]+[KMGkmg]?$ ]]; then
+        printf 'Invalid %s: %s\n' "$name" "$value" >&2
+        exit 64
+    fi
+}
+
+validate_nginx_size() {
+    local name="$1"
+    local value="${!name}"
+    if [[ ! "$value" =~ ^[0-9]+[KMGkmg]?$ ]]; then
+        printf 'Invalid %s: %s\n' "$name" "$value" >&2
+        exit 64
+    fi
+}
+
+validate_duration() {
+    local name="$1"
+    local value="${!name}"
+    if [[ ! "$value" =~ ^[0-9]+(ms|[smhdw])?$ ]]; then
+        printf 'Invalid %s: %s\n' "$name" "$value" >&2
+        exit 64
+    fi
+}
+
+validate_integer() {
+    local name="$1"
+    local value="${!name}"
+    if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+        printf 'Invalid %s: %s\n' "$name" "$value" >&2
+        exit 64
+    fi
+}
+
+normalize_boolean() {
+    local name="$1"
+    local value="${!name}"
+    value="${value,,}"
+
+    case "$value" in
+        1|true|yes|on) printf -v "$name" '%s' true ;;
+        0|false|no|off) printf -v "$name" '%s' false ;;
+        *)
+            printf 'Invalid %s: %s\n' "$name" "$value" >&2
+            exit 64
+            ;;
+    esac
+
+    export "$name"
+}
+
+validate_php_size PHP_MEMORY_LIMIT
+validate_php_size PHP_UPLOAD_MAX_FILESIZE
+validate_php_size PHP_POST_MAX_SIZE
+validate_nginx_size NGINX_CLIENT_MAX_BODY_SIZE
+validate_nginx_size NGINX_FASTCGI_CACHE_MAX_SIZE
+validate_duration NGINX_FASTCGI_CACHE_VALID
+validate_duration NGINX_FASTCGI_CACHE_INACTIVE
+validate_integer PHP_MAX_EXECUTION_TIME
+validate_integer PHP_MAX_INPUT_VARS
+validate_integer PHP_FPM_MAX_CHILDREN
+validate_integer PHP_FPM_START_SERVERS
+validate_integer PHP_FPM_MIN_SPARE_SERVERS
+validate_integer PHP_FPM_MAX_SPARE_SERVERS
+validate_integer WP_CRON_INTERVAL_SECONDS
+normalize_boolean WP_CRON_RUNNER_ENABLED
+
+if (( WP_CRON_INTERVAL_SECONDS < 1 )); then
+    echo "WP_CRON_INTERVAL_SECONDS must be at least 1" >&2
+    exit 64
+fi
+
+if (( PHP_FPM_START_SERVERS > PHP_FPM_MAX_CHILDREN \
+    || PHP_FPM_MIN_SPARE_SERVERS > PHP_FPM_MAX_CHILDREN \
+    || PHP_FPM_MAX_SPARE_SERVERS > PHP_FPM_MAX_CHILDREN \
+    || PHP_FPM_MIN_SPARE_SERVERS > PHP_FPM_MAX_SPARE_SERVERS )); then
+    echo "Invalid PHP-FPM process limits" >&2
+    exit 64
+fi
+
+render_template() {
+    local variables="$1"
+    local source="$2"
+    local destination="$3"
+    envsubst "$variables" < "$source" > "$destination"
+}
+
+render_template \
+    '${PHP_MEMORY_LIMIT} ${PHP_UPLOAD_MAX_FILESIZE} ${PHP_POST_MAX_SIZE} ${PHP_MAX_EXECUTION_TIME} ${PHP_MAX_INPUT_VARS}' \
+    /usr/local/etc/php/templates/zz-byway.ini.template \
+    /usr/local/etc/php/conf.d/zz-byway.ini
+
+render_template \
+    '${PHP_FPM_MAX_CHILDREN} ${PHP_FPM_START_SERVERS} ${PHP_FPM_MIN_SPARE_SERVERS} ${PHP_FPM_MAX_SPARE_SERVERS}' \
+    /usr/local/etc/php-fpm.d/templates/zzz-byway.conf.template \
+    /usr/local/etc/php-fpm.d/zzz-byway.conf
+
+render_template \
+    '${NGINX_FASTCGI_CACHE_INACTIVE} ${NGINX_FASTCGI_CACHE_MAX_SIZE}' \
+    /etc/nginx/templates/nginx.conf.template \
+    /etc/nginx/nginx.conf
+
+render_template \
+    '${NGINX_CLIENT_MAX_BODY_SIZE} ${NGINX_FASTCGI_CACHE_VALID} ${PHP_MAX_EXECUTION_TIME}' \
+    /etc/nginx/templates/wordpress.conf.template \
+    /etc/nginx/conf.d/wordpress.conf
+
+generate_real_ip_config() {
+    local cidr
+    local cidrs=()
+    IFS=',' read -ra cidrs <<< "$NGINX_TRUSTED_PROXY_CIDRS"
+
+    {
+        for cidr in "${cidrs[@]}"; do
+            cidr="${cidr//[[:space:]]/}"
+            if [[ -z "$cidr" || ! "$cidr" =~ ^[0-9A-Fa-f:.]+(/[0-9]{1,3})?$ ]]; then
+                printf 'Invalid NGINX_TRUSTED_PROXY_CIDRS entry: %s\n' "$cidr" >&2
+                return 64
+            fi
+            printf 'set_real_ip_from %s;\n' "$cidr"
+        done
+        echo 'real_ip_header X-Forwarded-For;'
+        echo 'real_ip_recursive on;'
+    } > /etc/nginx/real-ip.conf
+}
+
+generate_real_ip_config
+
+install -d -o www-data -g www-data "$BYWAY_NGINX_CACHE_DIR" /run/nginx
+install -d /run/php
+
+# Reuse the official image's idempotent WordPress bootstrap. Running its normal
+# PHP-FPM config test lets both current and legacy official entrypoints complete
+# the bootstrap and then return. Existing document roots remain untouched.
+/usr/local/bin/docker-entrypoint.sh php-fpm --test
+
+install -d -o www-data -g www-data /var/www/html/wp-content/mu-plugins
+ln -sfn \
+    /usr/local/share/byway-wordpress/mu-plugins/byway-nginx-cache.php \
+    /var/www/html/wp-content/mu-plugins/byway-nginx-cache.php
+
+php-fpm --test
+nginx -t
+
+nginx_pid=""
+php_fpm_pid=""
+cron_pid=""
+
+stop_process() {
+    local pid="$1"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        kill -TERM "$pid" 2>/dev/null || true
+    fi
+}
+
+wait_for_process() {
+    local pid="$1"
+    [[ -z "$pid" ]] || wait "$pid" 2>/dev/null || true
+}
+
+shutdown_services() {
+    local exit_code="${1:-0}"
+    trap - TERM INT
+
+    stop_process "$cron_pid"
+    stop_process "$nginx_pid"
+    stop_process "$php_fpm_pid"
+
+    wait_for_process "$cron_pid"
+    wait_for_process "$nginx_pid"
+    wait_for_process "$php_fpm_pid"
+    exit "$exit_code"
+}
+
+trap 'shutdown_services 0' TERM INT
+
+php-fpm --nodaemonize &
+php_fpm_pid="$!"
+nginx -g 'daemon off;' &
+nginx_pid="$!"
+
+service_pids=("$php_fpm_pid" "$nginx_pid")
+if [[ "$WP_CRON_RUNNER_ENABLED" == true ]]; then
+    gosu www-data:www-data /usr/local/bin/byway-wordpress-cron &
+    cron_pid="$!"
+    service_pids+=("$cron_pid")
+fi
+
+set +e
+wait -n "${service_pids[@]}"
+status="$?"
+set -e
+
+if (( status == 0 )); then
+    status=1
+fi
+
+echo "A managed process exited; stopping the container" >&2
+shutdown_services "$status"

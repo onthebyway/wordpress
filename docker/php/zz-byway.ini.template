@@ -1,0 +1,23 @@
+expose_php = Off
+file_uploads = On
+memory_limit = ${PHP_MEMORY_LIMIT}
+upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}
+post_max_size = ${PHP_POST_MAX_SIZE}
+max_execution_time = ${PHP_MAX_EXECUTION_TIME}
+max_input_time = ${PHP_MAX_EXECUTION_TIME}
+max_input_vars = ${PHP_MAX_INPUT_VARS}
+
+log_errors = On
+display_errors = Off
+display_startup_errors = Off
+
+opcache.enable = 1
+opcache.enable_cli = 1
+opcache.memory_consumption = 128
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 20000
+opcache.validate_timestamps = 1
+opcache.revalidate_freq = 2
+
+realpath_cache_size = 4096K
+realpath_cache_ttl = 600

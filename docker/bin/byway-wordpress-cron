@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -u
+
+interval="${WP_CRON_INTERVAL_SECONDS:-300}"
+sleep_pid=""
+wp_pid=""
+stopping=0
+
+stop_process() {
+    local pid="$1"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+        kill -TERM "$pid" 2>/dev/null || true
+    fi
+}
+
+stop_cron_runner() {
+    stopping=1
+    stop_process "$sleep_pid"
+    stop_process "$wp_pid"
+}
+
+trap stop_cron_runner TERM INT
+
+while (( ! stopping )); do
+    sleep "$interval" &
+    sleep_pid="$!"
+    wait "$sleep_pid" 2>/dev/null || true
+    sleep_pid=""
+
+    (( stopping )) && break
+
+    if [[ ! -s /var/www/html/wp-config.php ]]; then
+        continue
+    fi
+
+    run_status=0
+    wp cron event run --due-now --quiet --path=/var/www/html &
+    wp_pid="$!"
+    wait "$wp_pid" || run_status="$?"
+    wp_pid=""
+
+    (( stopping )) && break
+    if (( run_status != 0 )); then
+        echo "WordPress cron run failed; retrying in ${interval} seconds" >&2
+    fi
+done
