@@ -2,8 +2,24 @@ name: Build and publish images
 
 on:
   pull_request:
+    paths:
+      - ".dockerignore"
+      - ".github/workflows/publish.yml"
+      - "Dockerfile"
+      - "Dockerfile.php74"
+      - "docker/**"
+      - "docker-bake.hcl"
+      - "tests/**"
   push:
     branches: [main]
+    paths:
+      - ".dockerignore"
+      - ".github/workflows/publish.yml"
+      - "Dockerfile"
+      - "Dockerfile.php74"
+      - "docker/**"
+      - "docker-bake.hcl"
+      - "tests/**"
   schedule:
     - cron: "23 4 * * 1"
   workflow_dispatch:
