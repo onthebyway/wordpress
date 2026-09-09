@@ -96,7 +96,6 @@ Set `NGINX_TRUSTED_PROXY_CIDRS` to the exact reverse-proxy network. Never use `0
 | Path | Purpose | Back up |
 | --- | --- | ---: |
 | `/var/www/html` | WordPress core and content | Yes |
-| MariaDB `/var/lib/mysql` | Database | Use `mariadb-dump` or `mariadb-backup` |
 | `/var/cache/nginx` | Disposable page cache | No |
 
 Imported files must be writable by `www-data`. Do not run imported plugin or theme code as root.
