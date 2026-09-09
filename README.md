@@ -10,17 +10,18 @@ reverse proxy -> Nginx :8080 -> FastCGI cache -> PHP-FPM :9000
 
 | Image | Purpose |
 | --- | --- |
+| `ghcr.io/onthebyway/wordpress:php8.5` | Supported runtime based on the official WordPress PHP 8.5 image |
 | `ghcr.io/onthebyway/wordpress:php8.4` | Supported runtime based on the official WordPress PHP 8.4 image |
 | `ghcr.io/onthebyway/wordpress:php7.4` | Migration-only runtime using PHP 7.4 packages from `ppa:ondrej/php` on Ubuntu 24.04 LTS |
 
-PHP 7.4 is end-of-life and receives no upstream security support. Its image exists only to import legacy sites, update their code and move them to a supported PHP version; do not use it for production or new sites. The signed third-party PPA keeps PHP 7.4 installable on a supported operating-system base but does not restore upstream PHP support. Neither image is published as `latest`.
+PHP 7.4 is end-of-life and receives no upstream security support. Its image exists only to import legacy sites, update their code and move them to a supported PHP version; do not use it for production or new sites. The signed third-party PPA keeps PHP 7.4 installable on a supported operating-system base but does not restore upstream PHP support. No image is published as `latest`.
 
 ## Features
 
-- Current WordPress seed from the official PHP 8.4 image
+- Current WordPress seed from the official WordPress images
 - Nginx FastCGI page cache with safe bypasses for authenticated and dynamic requests
 - PHP-FPM managed with Nginx under `tini`
-- WP-CLI 2.12.0, PhpRedis and Imagick support
+- WP-CLI, PhpRedis and Imagick support
 - PHP-FPM health endpoint at `/.byway-health`
 - Persistent browser-based WordPress, plugin and theme updates
 - Built-in five-minute WP-CLI cron runner executing as `www-data`
@@ -46,7 +47,7 @@ docker compose -f compose.example.yaml exec -T --user www-data wordpress \
 
 ## Build
 
-Build both variants:
+Build all variants:
 
 ```bash
 docker buildx bake --load
@@ -55,6 +56,7 @@ docker buildx bake --load
 Build one variant:
 
 ```bash
+docker buildx bake --load php85
 docker buildx bake --load php84
 docker buildx bake --load php74
 ```

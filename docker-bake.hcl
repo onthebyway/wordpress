@@ -11,6 +11,10 @@ variable "UBUNTU_IMAGE" {
 }
 
 variable "WP_CLI_IMAGE" {
+  default = "wordpress:cli-php8.4"
+}
+
+variable "WP_CLI_PHP74_IMAGE" {
   default = "wordpress:cli-2.12.0-php8.4"
 }
 
@@ -23,12 +27,13 @@ variable "PHP_IMAGICK_VERSION" {
 }
 
 group "default" {
-  targets = ["php74", "php84"]
+  targets = ["php74", "php84", "php85"]
 }
 
 target "base" {
   context    = "."
   dockerfile = "Dockerfile"
+  pull       = true
   args = {
     WP_CLI_IMAGE        = "${WP_CLI_IMAGE}"
     PHP_REDIS_VERSION   = "${PHP_REDIS_VERSION}"
@@ -39,10 +44,11 @@ target "base" {
 target "php74" {
   context    = "."
   dockerfile = "Dockerfile.php74"
+  pull       = true
   args = {
     UBUNTU_IMAGE          = "${UBUNTU_IMAGE}"
     WORDPRESS_SOURCE_IMAGE = "${WORDPRESS_SOURCE_IMAGE}"
-    WP_CLI_IMAGE           = "${WP_CLI_IMAGE}"
+    WP_CLI_IMAGE           = "${WP_CLI_PHP74_IMAGE}"
   }
   tags = ["${IMAGE_NAME}:php7.4"]
 }
@@ -51,6 +57,16 @@ target "php84" {
   inherits = ["base"]
   args = {
     WORDPRESS_IMAGE = "wordpress:php8.4-fpm"
+    WP_CLI_IMAGE    = "wordpress:cli-php8.4"
   }
   tags = ["${IMAGE_NAME}:php8.4"]
+}
+
+target "php85" {
+  inherits = ["base"]
+  args = {
+    WORDPRESS_IMAGE = "wordpress:php8.5-fpm"
+    WP_CLI_IMAGE    = "wordpress:cli-php8.5"
+  }
+  tags = ["${IMAGE_NAME}:php8.5"]
 }

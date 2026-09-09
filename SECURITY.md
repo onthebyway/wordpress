@@ -2,7 +2,7 @@
 
 ## Supported images
 
-Security updates are provided for the `php8.4` image. The `php7.4` image uses signed `ppa:ondrej/php` packages on Ubuntu 24.04, but PHP 7.4 remains upstream end-of-life; this migration-only image is not supported for production and should be migrated away from.
+Security updates are provided for the `php8.4` and `php8.5` images. The `php7.4` image uses signed `ppa:ondrej/php` packages on Ubuntu 24.04, but PHP 7.4 remains upstream end-of-life; this migration-only image is not supported for production and should be migrated away from.
 
 ## Reporting a vulnerability
 
