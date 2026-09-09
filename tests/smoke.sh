@@ -37,6 +37,15 @@ done
 [[ "$(docker exec "$name" curl -fsS http://127.0.0.1:8080/.byway-health)" == pong ]]
 [[ "$(docker exec "$name" curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/wp-config-docker.php)" == 403 ]]
 
+docker exec -i "$name" sh -c \
+    'cat > /var/www/html/byway-real-ip-test.php' <<'PHP'
+<?php echo $_SERVER["REMOTE_ADDR"];
+PHP
+[[ "$(docker exec "$name" curl -fsS \
+    -H 'X-Forwarded-For: 203.0.113.42' \
+    http://127.0.0.1:8080/byway-real-ip-test.php)" == 203.0.113.42 ]]
+docker exec "$name" rm /var/www/html/byway-real-ip-test.php
+
 docker exec "$name" php -r \
     'exit(strpos(PHP_VERSION, $argv[1]) === 0 ? 0 : 1);' -- "$expected_php"
 docker exec "$name" php --ri redis >/dev/null

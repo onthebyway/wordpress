@@ -89,7 +89,7 @@ Keep `PHP_POST_MAX_SIZE` and `NGINX_CLIENT_MAX_BODY_SIZE` larger than `PHP_UPLOA
 
 The standard official-image `WORDPRESS_*` settings are supported, including `*_FILE` secret variables. On first initialization, the official WordPress entrypoint generates random authentication salts unless explicit values are supplied. Existing document roots and `wp-config.php` files are never replaced.
 
-Set `NGINX_TRUSTED_PROXY_CIDRS` to the exact reverse-proxy network. Never use `0.0.0.0/0` in production.
+Nginx trusts forwarded visitor IPs from loopback, private IPv4 networks and private IPv6 networks by default. This covers typical internal and container reverse proxies without configuration. Set `NGINX_TRUSTED_PROXY_CIDRS` to a comma-separated override only when the proxy connects from another range; never use `0.0.0.0/0` or `::/0` in production.
 
 ## Persistent data
 
