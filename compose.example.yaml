@@ -47,11 +47,6 @@ services:
       - nginx_cache:/var/cache/nginx
     expose:
       - "8080"
-    networks:
-      default:
-      caddy:
-        aliases:
-          - wp-${SITE_SLUG:?set SITE_SLUG}
     stop_grace_period: 30s
 
   database:
@@ -97,8 +92,3 @@ volumes:
   wordpress_data:
   nginx_cache:
   database_data:
-
-networks:
-  caddy:
-    external: true
-    name: ${CADDY_NETWORK:-caddy}

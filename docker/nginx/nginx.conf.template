@@ -23,7 +23,7 @@ http {
     keepalive_timeout 65;
     server_tokens off;
 
-    # Caddy performs public response compression and TLS termination.
+    # The upstream reverse proxy performs public response compression and TLS termination.
     gzip off;
 
     include /etc/nginx/real-ip.conf;

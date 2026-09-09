@@ -32,11 +32,10 @@ PHP 7.4 is end-of-life and receives no upstream security support. Its image exis
 ```bash
 cp .env.example .env
 # Replace the example credentials and set the public URL.
-docker network create caddy
 docker compose -f compose.example.yaml up -d
 ```
 
-The example expects an external `caddy` network. Any reverse proxy can be used if it can reach the WordPress container on port `8080`.
+The WordPress service listens on port `8080` for a reverse proxy or other ingress.
 
 Run WP-CLI as the web user:
 
@@ -65,18 +64,6 @@ Override `IMAGE_NAME` to change the output repository:
 ```bash
 IMAGE_NAME=ghcr.io/example/wordpress docker buildx bake --push
 ```
-
-### Legacy migration workflow
-
-Use the PHP 7.4 image only on a disposable clone without production credentials or private-network access:
-
-1. Import and inspect the legacy site under PHP 7.4.
-2. Update WordPress core, plugins and themes.
-3. Back up the database and document root.
-4. Switch the clone to the PHP 8.4 image and resolve remaining compatibility errors.
-5. Deploy only after the site works on the supported image.
-
-Unknown or compromised sites require stronger isolation than a container on a shared host; prefer a disposable VM.
 
 ## Configuration
 
