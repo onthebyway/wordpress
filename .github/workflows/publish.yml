@@ -117,7 +117,9 @@ jobs:
           pull: true
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY_IMAGE }}:${{ matrix.tag }}
+          tags: |
+            ${{ env.REGISTRY_IMAGE }}:${{ matrix.tag }}
+            ${{ matrix.tag == 'php8.5' && format('{0}:latest', env.REGISTRY_IMAGE) || '' }}
           build-args: |
             ${{ matrix.runtime_arg }}
             WP_CLI_IMAGE=${{ matrix.wp_cli_image }}

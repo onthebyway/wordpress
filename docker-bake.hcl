@@ -11,7 +11,7 @@ variable "UBUNTU_IMAGE" {
 }
 
 variable "WP_CLI_IMAGE" {
-  default = "wordpress:cli-php8.4"
+  default = "wordpress:cli-php8.5"
 }
 
 variable "WP_CLI_PHP74_IMAGE" {
@@ -68,5 +68,5 @@ target "php85" {
     WORDPRESS_IMAGE = "wordpress:php8.5-fpm"
     WP_CLI_IMAGE    = "wordpress:cli-php8.5"
   }
-  tags = ["${IMAGE_NAME}:php8.5"]
+  tags = ["${IMAGE_NAME}:php8.5", "${IMAGE_NAME}:latest"]
 }

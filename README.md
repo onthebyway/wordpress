@@ -10,11 +10,12 @@ reverse proxy -> Nginx :8080 -> FastCGI cache -> PHP-FPM :9000
 
 | Image | Purpose |
 | --- | --- |
+| `ghcr.io/onthebyway/wordpress:latest` | Alias of `php8.5` for the current recommended runtime |
 | `ghcr.io/onthebyway/wordpress:php8.5` | Supported runtime based on the official WordPress PHP 8.5 image |
 | `ghcr.io/onthebyway/wordpress:php8.4` | Supported runtime based on the official WordPress PHP 8.4 image |
 | `ghcr.io/onthebyway/wordpress:php7.4` | Migration-only runtime using PHP 7.4 packages from `ppa:ondrej/php` on Ubuntu 24.04 LTS |
 
-PHP 7.4 is end-of-life and receives no upstream security support. Its image exists only to import legacy sites, update their code and move them to a supported PHP version; do not use it for production or new sites. The signed third-party PPA keeps PHP 7.4 installable on a supported operating-system base but does not restore upstream PHP support. No image is published as `latest`.
+PHP 7.4 is end-of-life and receives no upstream security support. Its image exists only to import legacy sites, update their code and move them to a supported PHP version; do not use it for production or new sites. The signed third-party PPA keeps PHP 7.4 installable on a supported operating-system base but does not restore upstream PHP support. The `latest` tag follows the newest supported PHP runtime; use a PHP-specific tag when upgrades between PHP lines must be controlled explicitly.
 
 ## Features
 

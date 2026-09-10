@@ -1,6 +1,6 @@
 services:
   wordpress:
-    image: ${WORDPRESS_IMAGE:-ghcr.io/onthebyway/wordpress:php8.4}
+    image: ${WORDPRESS_IMAGE:-ghcr.io/onthebyway/wordpress:php8.5}
     restart: unless-stopped
     depends_on:
       database:

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
-ARG WORDPRESS_IMAGE=wordpress:php8.4-fpm
-ARG WP_CLI_IMAGE=wordpress:cli-php8.4
+ARG WORDPRESS_IMAGE=wordpress:php8.5-fpm
+ARG WP_CLI_IMAGE=wordpress:cli-php8.5
 ARG PHP_REDIS_VERSION=6.3.0
 ARG PHP_IMAGICK_VERSION=3.8.0
 
