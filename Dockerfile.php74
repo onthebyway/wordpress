@@ -7,7 +7,7 @@ ARG WP_CLI_IMAGE=wordpress:cli-2.12.0-php8.4
 FROM ${WORDPRESS_SOURCE_IMAGE} AS wordpress-source
 FROM ${WP_CLI_IMAGE} AS wp-cli
 
-FROM ${UBUNTU_IMAGE}
+FROM ${UBUNTU_IMAGE} AS default
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG ONDREJ_PHP_KEY_FINGERPRINT=B8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6
@@ -78,6 +78,7 @@ COPY --chmod=0755 docker/bin/byway-wordpress-entrypoint /usr/local/bin/byway-wor
 
 RUN set -eux; \
     mkdir -p \
+        /etc/nginx/byway-server.d \
         /usr/local/etc/php/conf.d \
         /usr/local/etc/php/templates \
         /usr/local/etc/php-fpm.d/templates \

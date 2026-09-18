@@ -1,0 +1,25 @@
+location = /_spx {
+    return 308 /_spx/;
+}
+
+location ^~ /_spx/ {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    fastcgi_param SCRIPT_NAME /index.php;
+    fastcgi_param HTTP_HOST $http_host;
+    fastcgi_param HTTP_COOKIE $http_cookie;
+    fastcgi_param HTTP_AUTHORIZATION $http_authorization;
+    fastcgi_param HTTP_X_FORWARDED_FOR $http_x_forwarded_for;
+    fastcgi_param HTTP_X_FORWARDED_HOST $http_x_forwarded_host;
+    fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
+    fastcgi_param HTTP_PROXY "";
+    fastcgi_param HTTP_SPX_KEY "${SPX_INTERNAL_KEY}";
+    fastcgi_param HTTP_SPX_UI_URI /;
+
+    fastcgi_pass 127.0.0.1:9000;
+    fastcgi_read_timeout ${PHP_MAX_EXECUTION_TIME}s;
+    fastcgi_cache off;
+
+    add_header Cache-Control "no-store" always;
+    add_header X-Cache BYPASS always;
+}

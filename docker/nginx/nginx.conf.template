@@ -65,6 +65,7 @@ http {
         ~*woocommerce_items_in_cart 1;
         ~*woocommerce_cart_hash 1;
         ~*wp_woocommerce_session_ 1;
+        ~*SPX_ 1;
     }
 
     map $http_authorization $skip_cache_authorization {

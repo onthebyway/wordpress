@@ -23,6 +23,7 @@ export BYWAY_NGINX_CACHE_DIR="${BYWAY_NGINX_CACHE_DIR:-/var/cache/nginx/wordpres
 export WP_CRON_RUNNER_ENABLED="${WP_CRON_RUNNER_ENABLED:-true}"
 export WP_CRON_INTERVAL_SECONDS="${WP_CRON_INTERVAL_SECONDS:-300}"
 export DISABLE_WP_CRON="${DISABLE_WP_CRON:-true}"
+export SPX_INTERNAL_KEY=""
 
 validate_php_size() {
     local name="$1"
@@ -113,6 +114,22 @@ render_template() {
     envsubst "$variables" < "$source" > "$destination"
 }
 
+if [[ -f /usr/local/etc/php/templates/zz-spx.ini.template ]]; then
+    SPX_INTERNAL_KEY="$(php -r 'echo bin2hex(random_bytes(32));')"
+    export SPX_INTERNAL_KEY
+    install -d -m 0700 -o www-data -g www-data /tmp/spx
+
+    render_template \
+        '${SPX_INTERNAL_KEY}' \
+        /usr/local/etc/php/templates/zz-spx.ini.template \
+        /usr/local/etc/php/conf.d/zz-spx.ini
+
+    render_template \
+        '${SPX_INTERNAL_KEY} ${PHP_MAX_EXECUTION_TIME}' \
+        /etc/nginx/templates/spx-server.conf.template \
+        /etc/nginx/byway-server.d/spx.conf
+fi
+
 render_template \
     '${PHP_MEMORY_LIMIT} ${PHP_UPLOAD_MAX_FILESIZE} ${PHP_POST_MAX_SIZE} ${PHP_MAX_EXECUTION_TIME} ${PHP_MAX_INPUT_VARS}' \
     /usr/local/etc/php/templates/zz-byway.ini.template \
@@ -129,7 +146,7 @@ render_template \
     /etc/nginx/nginx.conf
 
 render_template \
-    '${NGINX_CLIENT_MAX_BODY_SIZE} ${NGINX_FASTCGI_CACHE_VALID} ${PHP_MAX_EXECUTION_TIME}' \
+    '${NGINX_CLIENT_MAX_BODY_SIZE} ${NGINX_FASTCGI_CACHE_VALID} ${PHP_MAX_EXECUTION_TIME} ${SPX_INTERNAL_KEY}' \
     /etc/nginx/templates/wordpress.conf.template \
     /etc/nginx/conf.d/wordpress.conf
 

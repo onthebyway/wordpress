@@ -4,10 +4,12 @@ ARG WORDPRESS_IMAGE=wordpress:php8.5-fpm
 ARG WP_CLI_IMAGE=wordpress:cli-php8.5
 ARG PHP_REDIS_VERSION=6.3.0
 ARG PHP_IMAGICK_VERSION=3.8.0
+ARG PHP_SPX_VERSION=0.4.22
+ARG PHP_SPX_SOURCE_SHA256=6f89addd100d3d71168c094612eb8e1c06fd8062da6ee4d9df5b31bdfc4de160
 
 FROM ${WP_CLI_IMAGE} AS wp-cli
 
-FROM ${WORDPRESS_IMAGE}
+FROM ${WORDPRESS_IMAGE} AS runtime
 
 ARG PHP_REDIS_VERSION
 ARG PHP_IMAGICK_VERSION
@@ -85,6 +87,7 @@ COPY --chmod=0755 docker/bin/byway-wordpress-cron /usr/local/bin/byway-wordpress
 COPY --chmod=0755 docker/bin/byway-wordpress-entrypoint /usr/local/bin/byway-wordpress-entrypoint
 
 RUN mkdir -p \
+        /etc/nginx/byway-server.d \
         /etc/nginx/templates \
         /usr/local/etc/php/templates \
         /usr/local/etc/php-fpm.d/templates \
@@ -125,3 +128,51 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/usr/local/bin/byway-wordpress-entrypoint"]
 CMD ["serve"]
+
+FROM runtime AS spx-builder
+
+ARG PHP_SPX_VERSION
+ARG PHP_SPX_SOURCE_SHA256
+
+WORKDIR /tmp/php-spx
+
+# Build PHP-SPX from pinned source for the target PHP ABI and architecture.
+# Build dependencies stay in this disposable stage.
+# hadolint ignore=DL3008,DL4006,SC2086
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends $PHPIZE_DEPS zlib1g-dev; \
+    curl --fail --silent --show-error --location \
+        "https://codeload.github.com/NoiseByNorthwest/php-spx/tar.gz/refs/tags/v${PHP_SPX_VERSION}" \
+        --output /tmp/php-spx.tar.gz; \
+    printf '%s  %s\n' "$PHP_SPX_SOURCE_SHA256" /tmp/php-spx.tar.gz | sha256sum --check --strict; \
+    mkdir -p /tmp/spx-output/web-ui; \
+    tar -xzf /tmp/php-spx.tar.gz -C /tmp/php-spx --strip-components=1; \
+    phpize; \
+    ./configure \
+        --with-spx-assets-dir=/usr/local/share/misc/php-spx/assets; \
+    make -j"$(nproc)"; \
+    cp modules/spx.so /tmp/spx-output/spx.so; \
+    cp -a assets/web-ui/. /tmp/spx-output/web-ui/; \
+    cp LICENSE /tmp/spx-output/LICENSE; \
+    ldd /tmp/spx-output/spx.so
+
+FROM runtime AS spx
+
+ARG PHP_SPX_VERSION
+
+LABEL org.opencontainers.image.title="Byway WordPress PHP-SPX" \
+    org.opencontainers.image.description="Temporary PHP 8.5 WordPress profiling runtime with PHP-SPX" \
+    org.opencontainers.image.licenses="GPL-2.0-or-later AND GPL-3.0-or-later" \
+    dev.byway.php-spx.version="${PHP_SPX_VERSION}"
+
+COPY --from=spx-builder /tmp/spx-output/spx.so /usr/local/lib/byway-wordpress/extensions/spx.so
+COPY --from=spx-builder /tmp/spx-output/web-ui /usr/local/share/misc/php-spx/assets/web-ui
+COPY --from=spx-builder /tmp/spx-output/LICENSE /usr/local/share/licenses/php-spx/LICENSE
+COPY docker/spx/20-spx.ini /usr/local/etc/php/conf.d/20-spx.ini
+COPY docker/spx/zz-spx.ini.template /usr/local/etc/php/templates/zz-spx.ini.template
+COPY docker/spx/spx-server.conf.template /etc/nginx/templates/spx-server.conf.template
+
+RUN php --ri spx > /dev/null
+
+FROM runtime AS default

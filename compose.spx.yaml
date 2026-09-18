@@ -1,0 +1,5 @@
+services:
+  wordpress:
+    image: ghcr.io/onthebyway/wordpress:php8.5-spx
+    tmpfs:
+      - /tmp/spx:rw,noexec,nosuid,nodev,size=512m,uid=33,gid=33,mode=0700

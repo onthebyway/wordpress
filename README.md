@@ -12,6 +12,7 @@ reverse proxy -> Nginx :8080 -> FastCGI cache -> PHP-FPM :9000
 | --- | --- |
 | `ghcr.io/onthebyway/wordpress:latest` | Alias of `php8.5` for the current recommended runtime |
 | `ghcr.io/onthebyway/wordpress:php8.5` | Supported runtime based on the official WordPress PHP 8.5 image |
+| `ghcr.io/onthebyway/wordpress:php8.5-spx` | Temporary PHP 8.5 profiling runtime with the PHP-SPX web UI |
 | `ghcr.io/onthebyway/wordpress:php8.4` | Supported runtime based on the official WordPress PHP 8.4 image |
 | `ghcr.io/onthebyway/wordpress:php7.4` | Migration-only runtime using PHP 7.4 packages from `ppa:ondrej/php` on Ubuntu 24.04 LTS |
 
@@ -28,6 +29,7 @@ PHP 7.4 is end-of-life and receives no upstream security support. Its image exis
 - Built-in five-minute WP-CLI cron runner executing as `www-data`
 - Automatic full-page cache purging after content and extension changes
 - Graceful container shutdown
+- Optional PHP 8.5 diagnostic image with an always-available PHP-SPX control panel
 
 ## Quick start
 
@@ -58,6 +60,7 @@ Build one variant:
 
 ```bash
 docker buildx bake --load php85
+docker buildx bake --load php85-spx
 docker buildx bake --load php84
 docker buildx bake --load php74
 ```
@@ -123,6 +126,33 @@ Purge the page cache manually with:
 docker compose -f compose.example.yaml exec wordpress byway-cache-purge
 ```
 
+## PHP-SPX profiling image
+
+`php8.5-spx` is a temporary diagnostic image for authenticated, non-production sites. It loads PHP-SPX and exposes its control panel at `/_spx/` from container startup; no SPX environment setting or restart is needed. Profiling is initially disabled and is enabled only for the current browser session with the control panel's **Enabled** switch.
+
+Run the example stack with the profiler overlay:
+
+```bash
+docker compose -f compose.example.yaml -f compose.spx.yaml up -d
+```
+
+Then open:
+
+```text
+https://example.com/_spx/
+```
+
+The overlay stores reports in a 512 MiB tmpfs at `/tmp/spx`, so reports disappear with the container and cannot fill persistent storage. Requests from a browser session that has enabled SPX bypass the Nginx FastCGI cache; other visitors retain normal cache behavior.
+
+The SPX image generates an internal random key on every container start and passes it only between Nginx and PHP-SPX. The key does not need to be configured or placed in the URL. This deliberately relies on the site's outer reverse proxy for access control. Use the image only when the entire site is protected by VPN, SSO, Basic Auth or an equivalent ingress policy, and ensure container port `8080` cannot be reached around that policy.
+
+PHP-SPX is experimental upstream. Tear down the profiling deployment or switch back to `php8.5` after collecting the required reports. To profile a one-off CLI command inside the container, use PHP-SPX's normal CLI controls:
+
+```bash
+docker compose -f compose.example.yaml -f compose.spx.yaml exec -T --user www-data wordpress \
+  env SPX_ENABLED=1 wp core version
+```
+
 ## Security
 
 - Keep the image, WordPress core, plugins and themes updated.
@@ -133,4 +163,4 @@ docker compose -f compose.example.yaml exec wordpress byway-cache-purge
 
 ## License
 
-The custom source in this repository is licensed under GPL-2.0-or-later. WordPress and other included software retain their respective licenses.
+The custom source in this repository is licensed under GPL-2.0-or-later. WordPress and other included software retain their respective licenses. PHP-SPX is distributed under GPL-3.0-or-later, and its license is included in the profiling image.

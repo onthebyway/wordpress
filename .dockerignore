@@ -7,5 +7,5 @@
 LICENSE
 README.md
 SECURITY.md
-compose.example.yaml
+compose*.yaml
 tests

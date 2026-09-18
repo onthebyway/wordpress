@@ -1,0 +1,7 @@
+spx.data_dir="/tmp/spx"
+spx.http_enabled=1
+spx.http_profiling_enabled=0
+spx.http_key="${SPX_INTERNAL_KEY}"
+spx.http_ip_var="REMOTE_ADDR"
+spx.http_ip_whitelist="*"
+spx.http_ui_assets_dir="/usr/local/share/misc/php-spx/assets/web-ui"

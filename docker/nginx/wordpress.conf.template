@@ -7,6 +7,8 @@ server {
     index index.php index.html;
     client_max_body_size ${NGINX_CLIENT_MAX_BODY_SIZE};
 
+    include /etc/nginx/byway-server.d/*.conf;
+
     location = /.byway-health {
         access_log off;
         include fastcgi_params;
@@ -51,6 +53,7 @@ server {
         fastcgi_param HTTP_X_FORWARDED_HOST $http_x_forwarded_host;
         fastcgi_param HTTP_X_FORWARDED_PROTO $http_x_forwarded_proto;
         fastcgi_param HTTP_PROXY "";
+        fastcgi_param HTTP_SPX_KEY "${SPX_INTERNAL_KEY}";
 
         fastcgi_pass 127.0.0.1:9000;
         fastcgi_read_timeout ${PHP_MAX_EXECUTION_TIME}s;
