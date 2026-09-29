@@ -41,13 +41,6 @@ http {
         HEAD 0;
     }
 
-    # Query-string requests are not cached. This safely covers previews,
-    # searches, cache-busting requests and plugin-specific actions.
-    map $query_string $skip_cache_query {
-        default 1;
-        "" 0;
-    }
-
     map $request_uri $skip_cache_uri {
         default 0;
         ~*^/wp-admin(?:/|$) 1;
@@ -73,7 +66,7 @@ http {
         "" 0;
     }
 
-    map "$skip_cache_method:$skip_cache_query:$skip_cache_uri:$skip_cache_cookie:$skip_cache_authorization" $skip_cache {
+    map "$skip_cache_method:$skip_cache_uri:$skip_cache_cookie:$skip_cache_authorization" $skip_cache {
         default 0;
         ~1 1;
     }
