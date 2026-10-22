@@ -48,6 +48,17 @@ docker exec "$name" rm /var/www/html/byway-real-ip-test.php
 
 docker exec "$name" php -r \
     'exit(strpos(PHP_VERSION, $argv[1]) === 0 ? 0 : 1);' -- "$expected_php"
+case "$expected_php" in
+    7.4)
+        docker exec "$name" sh -c \
+            'gzip -dc /usr/share/doc/php7.4-common/changelog.Debian.gz | grep -Fq "CVE-2026-109618, CVE-2026-109619"'
+        ;;
+    8.4|8.5)
+        if [[ "$expected_php" == 8.4 ]]; then minimum_php=8.4.27; else minimum_php=8.5.12; fi
+        docker exec "$name" php -r \
+            'exit(version_compare(PHP_VERSION, $argv[1], ">=") ? 0 : 1);' -- "$minimum_php"
+        ;;
+esac
 docker exec "$name" php --ri redis >/dev/null
 docker exec "$name" php --ri imagick >/dev/null
 docker exec "$name" php -l /var/www/html/wp-config.php >/dev/null

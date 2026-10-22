@@ -78,6 +78,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           pull: true
+          no-cache: ${{ matrix.tag == 'php7.4' }}
           load: true
           target: ${{ matrix.target }}
           tags: local/wordpress:${{ matrix.tag }}
@@ -143,6 +144,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           pull: true
+          no-cache: ${{ matrix.tag == 'php7.4' }}
           platforms: linux/amd64,linux/arm64
           push: true
           target: ${{ matrix.target }}
