@@ -64,8 +64,15 @@ docker exec "$name" php --ri imagick >/dev/null
 docker exec "$name" php -l /var/www/html/wp-config.php >/dev/null
 docker exec "$name" sh -eu -c '! grep -q "put your unique phrase here" /var/www/html/wp-config.php'
 docker exec --user www-data "$name" wp core version --skip-plugins --skip-themes >/dev/null
+docker exec "$name" byway-check-nginx-version
+docker exec "$name" grep -Fq 'signed-by=/usr/share/keyrings/byway-nginx.asc' /etc/apt/sources.list.d/byway-nginx.list
+docker exec "$name" test -s /usr/share/keyrings/byway-nginx.asc
 docker exec "$name" nginx -t
 docker exec "$name" php-fpm --test
+if docker exec "$name" curl --max-time 2 -sS http://127.0.0.1:80/ >/dev/null 2>&1; then
+    echo 'Unexpected NGINX default listener on port 80' >&2
+    exit 1
+fi
 
 docker stop --time 30 "$name" >/dev/null
 [[ "$(docker inspect --format '{{.State.ExitCode}}' "$name")" == 0 ]]

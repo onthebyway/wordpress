@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -eq 0 ]; then
+    package_version="$(dpkg-query -W -f='${Version}' nginx)"
+else
+    package_version="$1"
+fi
+upstream_version="${package_version#*:}"
+upstream_version="${upstream_version%%-*}"
+
+# nginx.org's stable channel uses even minor lines. Require the November 2026
+# fixes, allow later stable 1.x releases, and fail closed on mainline or 2.x.
+if ! printf '%s\n' "$upstream_version" | grep -Eq '^1\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
+    printf 'Unsupported NGINX version: %s\n' "$package_version" >&2
+    exit 1
+fi
+minor="${upstream_version#1.}"
+minor="${minor%%.*}"
+if [ "$((minor % 2))" -ne 0 ] \
+    || ! dpkg --compare-versions "$upstream_version" ge 1.30.7; then
+    printf 'NGINX must be stable 1.x, at least 1.30.7: %s\n' "$package_version" >&2
+    exit 1
+fi
+
+if [ "$#" -eq 0 ] \
+    && [ "$(nginx -v 2>&1)" != "nginx version: nginx/$upstream_version" ]; then
+    echo 'NGINX executable does not match its installed package version' >&2
+    exit 1
+fi
+printf 'NGINX stable 1.x security policy satisfied: %s\n' "$package_version"

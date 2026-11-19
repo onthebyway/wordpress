@@ -21,6 +21,9 @@ LABEL org.opencontainers.image.title="Byway WordPress" \
     org.opencontainers.image.vendor="Byway" \
     org.opencontainers.image.licenses="GPL-2.0-or-later"
 
+COPY --chmod=0755 docker/bin/byway-check-nginx-version /usr/local/bin/byway-check-nginx-version
+COPY docker/build/install-nginx.sh /tmp/byway-install-nginx
+
 # Some security-package URLs intermittently return 404 on Debian CDN endpoints.
 # APT's mirror method retries official endpoints, retaining verification.
 # OS packages intentionally float so scheduled rebuilds receive security updates.
@@ -33,12 +36,14 @@ RUN mkdir -p /etc/apt/mirrors \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        gnupg \
         gettext-base \
         gosu \
-        nginx \
         tini \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -f /etc/nginx/sites-enabled/default
+    && sh /tmp/byway-install-nginx \
+    && apt-get purge -y --auto-remove gnupg \
+    && rm -rf /var/lib/apt/lists/* /tmp/byway-install-nginx \
+    && rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf
 
 # Extension build-package expansion and the library-discovery pipeline are
 # intentional; runtime libraries are retained before temporary dependencies go.
@@ -88,6 +93,7 @@ COPY --chmod=0755 docker/bin/byway-wordpress-entrypoint /usr/local/bin/byway-wor
 
 RUN mkdir -p \
         /etc/nginx/byway-server.d \
+        /etc/nginx/modules-enabled \
         /etc/nginx/templates \
         /usr/local/etc/php/templates \
         /usr/local/etc/php-fpm.d/templates \
