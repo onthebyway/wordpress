@@ -75,6 +75,8 @@ IMAGE_NAME=ghcr.io/example/wordpress docker buildx bake --push
 
 All PHP variants install Nginx from the official, signed **nginx.org stable** APT repository, not the distribution's older Nginx package. Repository trust is scoped with `Signed-By`; the vendor's signing-key fingerprints are checked before installation, and Nginx packages are preferred only from that origin.
 
+The legacy Ubuntu image uses architecture-appropriate HTTPS Ubuntu mirror lists with fallback, bootstrapping CA trust from its existing official WordPress build stage before installing Ubuntu's normal CA package. The Ubuntu suites, components and archive signing keys are unchanged; APT signatures and TLS verification remain required.
+
 The build requires **Nginx 1.30.7 or newer on a stable 1.x line**. Later stable minor and patch releases, such as 1.32.x, are accepted automatically. Mainline releases and Nginx 2.x fail the build and require an explicit policy review. Both the installed package version and the actual executable are checked; CI also tests rejection of old and out-of-policy versions.
 
 The existing Monday rebuild and manual workflow runs pull current base images and disable layer-cache reuse for **every variant**, ensuring APT/package installation is refreshed. Ordinary source-change builds can reuse cache, except for the legacy PHP 7.4 variant; changing the Nginx installer or policy invalidates its installation layer. For a fresh local rebuild use:
