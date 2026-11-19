@@ -75,7 +75,7 @@ IMAGE_NAME=ghcr.io/example/wordpress docker buildx bake --push
 
 All PHP variants install Nginx from the official, signed **nginx.org stable** APT repository, not the distribution's older Nginx package. Repository trust is scoped with `Signed-By`; the vendor's signing-key fingerprints are checked before installation, and Nginx packages are preferred only from that origin.
 
-The legacy Ubuntu image uses architecture-appropriate HTTPS Ubuntu mirror lists with fallback, bootstrapping CA trust from its existing official WordPress build stage before installing Ubuntu's normal CA package. The Ubuntu suites, components and archive signing keys are unchanged; APT signatures and TLS verification remain required.
+The legacy Ubuntu image uses one HTTPS Ubuntu archive endpoint per architecture (Azure on AMD64, Canonical ports on ARM64), with bounded network retries/timeouts. CA trust is bootstrapped from its existing official WordPress build stage before installing Ubuntu's normal CA package. The Ubuntu suites, components and archive signing keys are unchanged; APT signatures and TLS verification remain required.
 
 The build requires **Nginx 1.30.7 or newer on a stable 1.x line**. Later stable minor and patch releases, such as 1.32.x, are accepted automatically. Mainline releases and Nginx 2.x fail the build and require an explicit policy review. Both the installed package version and the actual executable are checked; CI also tests rejection of old and out-of-policy versions.
 

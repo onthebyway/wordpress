@@ -28,29 +28,24 @@ COPY --from=wordpress-source /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/c
 # scheduled rebuilds receive available operating-system and packaging updates.
 # hadolint ignore=DL3008
 RUN set -eux; \
-    mkdir -p /etc/apt/mirrors; \
+    printf 'Acquire::Retries "3";\nAcquire::https::Timeout "30";\n' \
+        > /etc/apt/apt.conf.d/80-byway-network; \
     case "$(dpkg --print-architecture)" in \
-        amd64) printf '%s\n' \
-            'https://azure.archive.ubuntu.com/ubuntu' \
-            'https://mirrors.edge.kernel.org/ubuntu' \
-            'https://archive.ubuntu.com/ubuntu' \
-            > /etc/apt/mirrors/byway-ubuntu.list ;; \
-        arm64) printf '%s\n' \
-            'https://ports.ubuntu.com/ubuntu-ports' \
-            'https://mirrors.dotsrc.org/ubuntu-ports' \
-            > /etc/apt/mirrors/byway-ubuntu.list ;; \
+        amd64) ubuntu_archive='https://azure.archive.ubuntu.com/ubuntu' ;; \
+        arm64) ubuntu_archive='https://ports.ubuntu.com/ubuntu-ports' ;; \
         *) exit 1 ;; \
     esac; \
     find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) \
-        ! -path '/etc/apt/mirrors/*' \
         -exec sed -i \
-            -e 's|https\?://archive\.ubuntu\.com/ubuntu/*|mirror+file:/etc/apt/mirrors/byway-ubuntu.list|g' \
-            -e 's|https\?://security\.ubuntu\.com/ubuntu/*|mirror+file:/etc/apt/mirrors/byway-ubuntu.list|g' \
-            -e 's|https\?://ports\.ubuntu\.com/ubuntu-ports/*|mirror+file:/etc/apt/mirrors/byway-ubuntu.list|g' {} +; \
+            -e "s|https\?://archive\.ubuntu\.com/ubuntu/*|${ubuntu_archive}/|g" \
+            -e "s|https\?://security\.ubuntu\.com/ubuntu/*|${ubuntu_archive}/|g" \
+            -e "s|https\?://ports\.ubuntu\.com/ubuntu-ports/*|${ubuntu_archive}/|g" {} +; \
     apt-get -o APT::Update::Error-Mode=any update; \
     apt-get install -y --no-install-recommends ca-certificates curl gnupg; \
     install -d -m 0755 /etc/apt/keyrings; \
     curl --fail --silent --show-error --location \
+        --proto '=https' --proto-redir '=https' \
+        --connect-timeout 15 --max-time 60 --retry 3 \
         "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x${ONDREJ_PHP_KEY_FINGERPRINT}" \
         --output /tmp/ondrej-php.asc; \
     gpg --batch --show-keys --with-colons /tmp/ondrej-php.asc \
